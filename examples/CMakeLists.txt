@@ -7,18 +7,18 @@ add_compile_options(-W -Wall -g -fpermissive)
 
 include_directories(include)
 
-add_executable(reader_pull
-    reader_pull.cpp
+add_executable(reader
+    reader.cpp
 )
-target_link_libraries(reader_pull
+target_link_libraries(reader
 PUBLIC
     richevent
 )
 
-add_executable(writer_push
-    writer_push.cpp
+add_executable(writer
+    writer.cpp
 )
-target_link_libraries(writer_push
+target_link_libraries(writer
 PUBLIC
     richevent
 )

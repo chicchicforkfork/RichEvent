@@ -3,6 +3,8 @@
 #include <string>
 
 using namespace chkchk;
+using namespace nlohmann;
+using namespace std;
 
 RichEventWriter::RichEventWriter(bool auto_connection) {
   _auto_connection = auto_connection;
@@ -11,32 +13,41 @@ RichEventWriter::RichEventWriter(bool auto_connection) {
 }
 
 RichEventWriter::~RichEventWriter() {
-  for (auto it : _service_map) {
-    zsock_t *zsock = it.second;
-    zsock_destroy(&zsock);
+  for (auto &it : _writers) {
+    writer_context_t &ctx = it.second;
+    zsock_destroy(&ctx.zsock);
   }
 }
 
-bool RichEventWriter::publish(const char *service, const char *msg) {
-  int rc;
-  zsock_t *writer = _service_map[service];
+bool RichEventWriter::send_json(const char *service, json &j) {
+  return send(service, j.dump().c_str());
+}
 
-  switch (zsock_type(writer)) {
-  case ZMQ_PUB:
-    rc = zstr_send(writer, msg);
-    zsock_flush(writer);
-    break;
-  case ZMQ_PUSH:
-    rc = zstr_send(writer, msg);
-    zsock_flush(writer);
-    break;
-  default:
+bool RichEventWriter::send(const char *service, const char *msg) {
+  bool ok = false;
+  auto it = _writers.find(service);
+  if (it == _writers.end()) {
     return false;
   }
 
-  if (rc < 0) {
-    zsock_destroy(&writer);
-    _service_map.erase(service);
+  writer_context_t &ctx = it->second;
+  switch (ctx.event_type) {
+  case RICH_EVENT_PUB:
+    if (zsock_send(ctx.zsock, "ss", service, msg) != -1) {
+      ok = true;
+    }
+    break;
+  case RICH_EVENT_PUSH:
+    if (zstr_send(ctx.zsock, msg) != -1) {
+      ok = true;
+    }
+    break;
+  }
+
+  if (!ok) {
+    zsock_destroy(&ctx.zsock);
+    _writers.erase(it);
+    return false;
   }
 
   return true;
@@ -54,14 +65,25 @@ bool RichEventWriter::register_writer(int type, const char *service,
                                       const char *endpoint) {
   zsock_t *writer = nullptr;
 
-  if (type == RICH_EVENT_PUB) {
+  switch (type) {
+  case RICH_EVENT_PUB:
     writer = zsock_new_pub(endpoint);
-  } else if (type == RICH_EVENT_PUSH) {
+    break;
+  case RICH_EVENT_PUSH:
     writer = zsock_new_push(endpoint);
+    break;
   }
   if (!writer) {
     return false;
   }
-  _service_map[service] = writer;
+
+  writer_context_t ctx;
+  ctx.self = this;
+  ctx.endpoint = endpoint;
+  ctx.service = service;
+  ctx.zsock = writer;
+  ctx.event_type = type;
+
+  _writers[service] = ctx;
   return true;
 }
