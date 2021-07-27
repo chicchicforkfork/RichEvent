@@ -30,6 +30,8 @@ bool RichEventWriter::send(const char *service, const char *msg) {
     return false;
   }
 
+  int rc1;
+  int rc2;
   writer_context_t &ctx = it->second;
   switch (ctx.event_type) {
   case RICH_EVENT_PUB:
@@ -38,7 +40,14 @@ bool RichEventWriter::send(const char *service, const char *msg) {
     }
     break;
   case RICH_EVENT_PUSH:
-    if (zstr_send(ctx.zsock, msg) != -1) {
+    rc1 = zstr_send(ctx.zsock, msg);
+    //rc2 = zsock_wait(ctx.zsock);
+    //printf("...........%d, %d\n", rc1, rc2);
+    if (rc1 != 0) {
+      printf("eeeeeeeeeeeeeeeeeeeeeeee\n");
+      exit(1);
+    }
+    if (rc1 != -1) {
       ok = true;
     }
     break;
@@ -100,13 +109,14 @@ bool RichEventWriter::register_req(const char *service, const char *endpoint) {
 bool RichEventWriter::register_writer(int type, const char *service,
                                       const char *endpoint) {
   zsock_t *writer = nullptr;
+    int sndhwm = 1;
 
   switch (type) {
   case RICH_EVENT_PUB:
     writer = zsock_new_pub(endpoint);
     break;
   case RICH_EVENT_PUSH:
-    writer = zsock_new_push(endpoint);
+    writer = zsock_new_push(endpoint);    
     break;
   case RICH_EVENT_REQ:
     writer = zsock_new_req(endpoint);
@@ -115,6 +125,7 @@ bool RichEventWriter::register_writer(int type, const char *service,
   if (!writer) {
     return false;
   }
+  zmq_setsockopt(writer, ZMQ_SNDHWM, &sndhwm, sizeof(sndhwm));
 
   writer_context_t ctx;
   ctx.self = this;

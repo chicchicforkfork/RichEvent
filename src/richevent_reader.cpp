@@ -137,6 +137,7 @@ bool RichEventReader::register_rep(const char *service, const char *endpoint,
 bool RichEventReader::subscribe(int type, const char *service,
                                 const char *endpoint, rbase_cb_fn callback) {
   zsock_t *reader = nullptr;
+    int sndhwm = 1;
 
   switch (type) {
   case RICH_EVENT_SUB:
@@ -152,6 +153,7 @@ bool RichEventReader::subscribe(int type, const char *service,
   if (!reader) {
     return false;
   }
+  zmq_setsockopt(reader, ZMQ_RCVHWM, &sndhwm, sizeof(sndhwm));
 
   zpoller_add(_poller, reader);
 
