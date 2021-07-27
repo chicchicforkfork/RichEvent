@@ -42,6 +42,11 @@ bool RichEventWriter::send(const char *service, const char *msg) {
       ok = true;
     }
     break;
+  case RICH_EVENT_REQ:
+    if (zstr_send(ctx.zsock, msg) != -1) {
+      ok = true;
+    }
+    break;
   }
 
   if (!ok) {
@@ -53,12 +58,43 @@ bool RichEventWriter::send(const char *service, const char *msg) {
   return true;
 }
 
+optional<string> RichEventWriter::recv(const char *service) {
+  char *msg = nullptr;
+  auto it = _writers.find(service);
+  if (it == _writers.end()) {
+    return nullopt;
+  }
+
+  writer_context_t &ctx = it->second;
+  msg = zstr_recv(ctx.zsock);
+  if (!msg) {
+    _writers.erase(it);
+    zsock_destroy(&ctx.zsock);
+    return nullopt;
+  }
+  string data = string(msg);
+  free(msg);
+  return data;
+}
+
+optional<json> RichEventWriter::recv_json(const char *service) {
+  auto data = recv(service);
+  if (data.has_value()) {
+    return json::parse(data->c_str());
+  }
+  return nullopt;
+}
+
 bool RichEventWriter::register_pub(const char *service, const char *endpoint) {
   return register_writer(RICH_EVENT_PUB, service, endpoint);
 }
 
 bool RichEventWriter::register_push(const char *service, const char *endpoint) {
   return register_writer(RICH_EVENT_PUSH, service, endpoint);
+}
+
+bool RichEventWriter::register_req(const char *service, const char *endpoint) {
+  return register_writer(RICH_EVENT_REQ, service, endpoint);
 }
 
 bool RichEventWriter::register_writer(int type, const char *service,
@@ -71,6 +107,9 @@ bool RichEventWriter::register_writer(int type, const char *service,
     break;
   case RICH_EVENT_PUSH:
     writer = zsock_new_push(endpoint);
+    break;
+  case RICH_EVENT_REQ:
+    writer = zsock_new_req(endpoint);
     break;
   }
   if (!writer) {

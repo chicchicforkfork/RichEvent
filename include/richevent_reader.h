@@ -26,6 +26,7 @@ private:
   enum {
     RICH_EVENT_SUB,
     RICH_EVENT_PULL,
+    RICH_EVENT_REP,
   };
 
 private:
@@ -39,6 +40,12 @@ public:
                     rbase_cb_fn callback);
   bool register_pull(const char *service, const char *endpoint,
                      rbase_cb_fn callback);
+  bool register_rep(const char *service, const char *endpoint,
+                    rbase_cb_fn callback);
+  static bool send_json(zsock_t *zsock, reader_context_t &ctx,
+                        nlohmann::json &data);
+  static bool send(zsock_t *zsock, reader_context_t &ctx,
+                   const std::string &data);
   static std::optional<std::string> recv(zsock_t *zsock, reader_context_t &ctx);
   static std::optional<nlohmann::json> recv_json(zsock_t *zsock,
                                                  reader_context_t &ctx);

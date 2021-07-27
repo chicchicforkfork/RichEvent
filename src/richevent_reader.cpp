@@ -53,6 +53,12 @@ optional<string> RichEventReader::recv(zsock_t *zsock, reader_context_t &ctx) {
       ok = true;
     }
     break;
+  case RICH_EVENT_REP:
+    msg = zstr_recv(zsock);
+    if (msg) {
+      ok = true;
+    }
+    break;
   default:
     return nullopt;
   }
@@ -81,6 +87,23 @@ optional<json> RichEventReader::recv_json(zsock_t *zsock,
   return nullopt;
 }
 
+bool RichEventReader::send(zsock_t *zsock, reader_context_t &ctx,
+                           const string &data) {
+  if (ctx.event_type != RICH_EVENT_REP) {
+    return false;
+  }
+  if (zstr_send(zsock, data.c_str()) == -1) {
+    zsock_destroy(&zsock);
+    ctx.self->_readers.erase(zsock);
+  }
+  return true;
+}
+
+bool RichEventReader::send_json(zsock_t *zsock, reader_context_t &ctx,
+                                json &data) {
+  return send(zsock, ctx, data.dump());
+}
+
 void RichEventReader::dispatch(int ms) {
   zsock_t *reader = (zsock_t *)zpoller_wait(_poller, ms);
   auto it = _readers.find(reader);
@@ -106,6 +129,11 @@ bool RichEventReader::register_pull(const char *service, const char *endpoint,
   return subscribe(RICH_EVENT_PULL, service, endpoint, callback);
 }
 
+bool RichEventReader::register_rep(const char *service, const char *endpoint,
+                                   rbase_cb_fn callback) {
+  return subscribe(RICH_EVENT_REP, service, endpoint, callback);
+}
+
 bool RichEventReader::subscribe(int type, const char *service,
                                 const char *endpoint, rbase_cb_fn callback) {
   zsock_t *reader = nullptr;
@@ -116,6 +144,9 @@ bool RichEventReader::subscribe(int type, const char *service,
     break;
   case RICH_EVENT_PULL:
     reader = zsock_new_pull(endpoint);
+    break;
+  case RICH_EVENT_REP:
+    reader = zsock_new_rep(endpoint);
     break;
   }
   if (!reader) {

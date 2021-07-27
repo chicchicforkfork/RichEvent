@@ -33,5 +33,20 @@ int main() {
                         return true;
                       });
 
+  reader.register_rep("test2", "tcp://127.0.0.1:5559",
+                      [](zsock_t *zsock, reader_context_t &ctx) {
+                        auto j = RichEventReader::recv_json(zsock, ctx);
+                        if (!j.has_value()) {
+                          return false;
+                        }
+
+                        json jp;
+                        jp["result"] = 1;
+                        RichEventReader::send_json(zsock, ctx, jp);
+                        std::cout << "[pull] recv from port 5559: " << j->dump()
+                                  << std::endl;
+                        return true;
+                      });
+
   reader.event_loop();
 }
