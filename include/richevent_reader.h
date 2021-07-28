@@ -1,3 +1,6 @@
+#ifndef __RICHEVENT_READER_H__
+#define __RICHEVENT_READER_H__
+
 #include "nlohmann/json.hpp"
 #include <czmq.h>
 #include <functional>
@@ -9,17 +12,18 @@
 namespace chkchk {
 
 class RichEventReader;
-struct _reader_context_t;
+struct reader_ctx;
 
-using rbase_cb_fn = std::function<bool(zsock_t *, struct _reader_context_t &)>;
+using rbase_cb_fn = std::function<bool(zsock_t *, struct reader_ctx &)>;
 
-typedef struct _reader_context_t {
+typedef struct reader_ctx {
   RichEventReader *self;
   int event_type;
   rbase_cb_fn cb;
   std::string endpoint;
   std::string service;
-} reader_context_t;
+  bool is_listen;
+} reader_ctx_t;
 
 class RichEventReader {
 private:
@@ -31,7 +35,7 @@ private:
 
 private:
   zpoller_t *_poller;
-  std::map<zsock_t *, reader_context_t> _readers;
+  std::map<zsock_t *, reader_ctx_t> _readers;
 
 public:
   RichEventReader();
@@ -42,20 +46,22 @@ public:
                      rbase_cb_fn callback);
   bool register_rep(const char *service, const char *endpoint,
                     rbase_cb_fn callback);
-  static bool send_json(zsock_t *zsock, reader_context_t &ctx,
-                        nlohmann::json &data);
-  static bool send(zsock_t *zsock, reader_context_t &ctx,
-                   const std::string &data);
-  static std::optional<std::string> recv(zsock_t *zsock, reader_context_t &ctx);
-  static std::optional<nlohmann::json> recv_json(zsock_t *zsock,
-                                                 reader_context_t &ctx);
+
+public:
+  bool send_json(zsock_t *zsock, reader_ctx_t &ctx, nlohmann::json &data);
+  bool send(zsock_t *zsock, reader_ctx_t &ctx, const std::string &data);
+  std::optional<char *> recv(zsock_t *zsock, reader_ctx_t &ctx);
+  std::optional<nlohmann::json> recv_json(zsock_t *zsock, reader_ctx_t &ctx);
   void event_loop();
   void event_once(int ms);
 
 private:
-  bool subscribe(int type, const char *service, const char *endpoint,
-                 rbase_cb_fn callback);
+  bool recovery(zsock_t *zsock);
+  bool register_reader(int type, const char *service, const char *endpoint,
+                       rbase_cb_fn callback);
   void dispatch(int ms);
 };
 
 }; // namespace chkchk
+
+#endif

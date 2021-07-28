@@ -1,3 +1,6 @@
+#ifndef __RICHEVENT_WRITER_H__
+#define __RICHEVENT_WRITER_H__
+
 #include "nlohmann/json.hpp"
 #include <czmq.h>
 #include <functional>
@@ -9,13 +12,13 @@ namespace chkchk {
 
 class RichEventWriter;
 
-typedef struct _writer_context_t {
+typedef struct writer_ctx {
   RichEventWriter *self;
   int event_type;
   std::string endpoint;
   std::string service;
   zsock_t *zsock;
-} writer_context_t;
+} writer_ctx_t;
 
 class RichEventWriter {
 private:
@@ -24,18 +27,17 @@ private:
     RICH_EVENT_PUSH,
     RICH_EVENT_REQ,
   };
-  std::map<std::string, writer_context_t> _writers;
-  bool _auto_connection;
+  std::map<std::string, writer_ctx_t> _writers;
 
 public:
-  RichEventWriter(bool auto_connection = false);
+  RichEventWriter();
   virtual ~RichEventWriter();
   bool register_pub(const char *service, const char *endpoint);
   bool register_push(const char *service, const char *endpoint);
   bool register_req(const char *service, const char *endpoint);
   bool send(const char *service, const char *msg);
   bool send_json(const char *service, nlohmann::json &j);
-  std::optional<std::string> recv(const char *service);
+  std::optional<char *> recv(const char *service);
   std::optional<nlohmann::json> recv_json(const char *service);
 
 private:
@@ -43,3 +45,5 @@ private:
 };
 
 }; // namespace chkchk
+
+#endif
