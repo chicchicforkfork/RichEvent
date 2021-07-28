@@ -2,6 +2,7 @@
 #include "richevent.h"
 #include <getopt.h>
 #include <iostream>
+#include "kairos.h"
 
 using namespace std;
 using namespace chkchk;
@@ -62,6 +63,12 @@ int main(int argc, char **argv) {
   bool ok;
   size_t success = 0;
   size_t failure = 0;
+
+  KairosStack kstack("benchmark", 10);
+
+  Kairos kairos = Kairos("writer");
+  kairos.begin();
+  
   for (int i = 0; i < count; i++) {
     nlohmann::json j;
     j["id"] = i;
@@ -100,6 +107,10 @@ int main(int argc, char **argv) {
       }
     }
   }
+  kairos.end();
+  kstack.addKairos(kairos);
+
   printf("success: %ld, failure:%ld\n", success, failure);
   getchar();
+  cout << kstack.toString();
 }
