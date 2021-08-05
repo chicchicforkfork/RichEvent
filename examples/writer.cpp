@@ -1,18 +1,20 @@
+#include "kairos.h"
 #include "nlohmann/json.hpp"
 #include "richevent.h"
 #include <getopt.h>
 #include <iostream>
-#include "kairos.h"
 
 using namespace std;
 using namespace chkchk;
+using namespace nlohmann;
 
 int main(int argc, char **argv) {
   int opt;
   int count = 1;
   int type = 4;
   int sock = 0;
-  while ((opt = getopt(argc, argv, "t:c:pu")) != -1) {
+  int datasize = 1024;
+  while ((opt = getopt(argc, argv, "s:t:c:pu")) != -1) {
     switch (opt) {
     default:
       printf(" -c count\n");
@@ -20,6 +22,9 @@ int main(int argc, char **argv) {
       printf(" -u uds mode\n");
       printf(" -t type [1|2|3|4]\n");
       exit(1);
+    case 's':
+      datasize = atoi(optarg);
+      break;
     case 't':
       type = atoi(optarg);
       break;
@@ -38,6 +43,7 @@ int main(int argc, char **argv) {
   const char *test1[] = {"ipc://kaka1", "tcp://127.0.0.1:5556"};
   const char *test2[] = {"ipc://kaka2", "tcp://127.0.0.1:5557"};
   const char *test3[] = {"ipc://kaka3", "tcp://127.0.0.1:5558"};
+  const char *notify[] = {"ipc://kaka4", "tcp://127.0.0.1:5559"};
 
   RichEventWriter writer;
   if (type == 1 || type == 4) {
@@ -52,23 +58,27 @@ int main(int argc, char **argv) {
     writer.register_req("test3", test3[sock]);
     printf("register req\n");
   }
-  getchar();
+  {
+    writer.register_push("notify", notify[sock]);
+    printf("register notify\n");
+    json jnotify;
+    jnotify["count"] = count;
+    writer.send_json("notify", jnotify);
+  }
 
-  char data[1024];
-  for (size_t i = 0; i < sizeof(data) - 1; i++) {
+  char *data = (char *)malloc(datasize);
+  for (size_t i = 0; i < datasize - 1; i++) {
     data[i] = 'a';
   }
-  data[sizeof(data) - 1] = 0;
+  data[datasize - 1] = 0;
+
+  printf("\nkey press Enter for writer\n");
+  getchar();
 
   bool ok;
-  size_t success = 0;
-  size_t failure = 0;
+  int success = 0;
+  int failure = 0;
 
-  KairosStack kstack("benchmark", 10);
-
-  Kairos kairos = Kairos("writer");
-  kairos.begin();
-  
   for (int i = 0; i < count; i++) {
     nlohmann::json j;
     j["id"] = i;
@@ -77,6 +87,7 @@ int main(int argc, char **argv) {
     if (type == 1 || type == 4) {
       ok = writer.send_json("test1", j);
       if (ok) {
+        // printf("send #%d\n", success);
         success++;
       } else {
         failure++;
@@ -107,10 +118,9 @@ int main(int argc, char **argv) {
       }
     }
   }
-  kairos.end();
-  kstack.addKairos(kairos);
 
-  printf("success: %ld, failure:%ld\n", success, failure);
+  printf("[data size]: %d\n", datasize);
+  printf("[count]: %d\n", count);
+  printf("[writer] success: %d, failure:%d\n", success, failure);
   getchar();
-  cout << kstack.toString();
 }

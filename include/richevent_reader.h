@@ -17,6 +17,7 @@ struct reader_ctx;
 using rbase_cb_fn = std::function<bool(zsock_t *, struct reader_ctx &)>;
 
 typedef struct reader_ctx {
+  zsock_t *zsock;
   RichEventReader *self;
   int event_type;
   rbase_cb_fn cb;
@@ -35,7 +36,9 @@ private:
 
 private:
   zpoller_t *_poller;
-  std::map<zsock_t *, reader_ctx_t> _readers;
+  std::map<zsock_t *, reader_ctx_t> _zsock_readers;
+  std::map<const char *, reader_ctx> _service_readers;
+  bool _running;
 
 public:
   RichEventReader();
@@ -46,12 +49,17 @@ public:
                      rbase_cb_fn callback);
   bool register_rep(const char *service, const char *endpoint,
                     rbase_cb_fn callback);
+  void stop() { _running = false; }
 
 public:
+  bool send_json(const char *service, nlohmann::json &data);
   bool send_json(zsock_t *zsock, reader_ctx_t &ctx, nlohmann::json &data);
+  bool send(const char *service, const std::string &data);
   bool send(zsock_t *zsock, reader_ctx_t &ctx, const std::string &data);
   std::optional<char *> recv(zsock_t *zsock, reader_ctx_t &ctx);
+  std::optional<char *> recv(const char *service);
   std::optional<nlohmann::json> recv_json(zsock_t *zsock, reader_ctx_t &ctx);
+  std::optional<nlohmann::json> recv_json(const char *service);
   void event_loop();
   void event_once(int ms);
 

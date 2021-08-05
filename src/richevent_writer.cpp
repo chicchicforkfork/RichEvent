@@ -29,8 +29,6 @@ bool RichEventWriter::send(const char *service, const char *msg) {
   case RICH_EVENT_PUB:
   case RICH_EVENT_PUSH:
   case RICH_EVENT_REQ:
-    printf("sss : %d, %s : %s\n", zsock_fd(ctx.zsock), service,
-           ctx.endpoint.c_str());
     if (zstr_send(ctx.zsock, msg) == 0) {
       // zsock_flush(ctx.zsock);
       ok = true;
